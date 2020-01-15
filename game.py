@@ -47,7 +47,7 @@ class Enemy(pg.sprite.Sprite):
 
         self.image = pg.Surface([cell_size // 2, cell_size // 2])
         self.image.fill(pg.Color("red"))
-        self.rect = self.image.get_rect().move(cell_size // 2 * x + 12, cell_size // 2 * y + 12)
+        self.rect = self.image.get_rect().move(cell_size // 2 * x + 25, cell_size // 2 * y + 25)
         self.hp = hp
         self.current_direction = ""
         self.directions = None
@@ -68,7 +68,11 @@ class Enemy(pg.sprite.Sprite):
             self.steps = 0
     
     def next_direction(self):
-        self.current_direction = next(self.directions)
+        try:
+            self.current_direction = next(self.directions)
+        except StopIteration:
+            self.kill()
+            del self
     
     def set_directions(self, directions):
         self.directions = directions
@@ -177,7 +181,7 @@ def find_path(start: tuple, end: tuple) -> list:
 
 
 def create_path_string(path: list) -> str:
-    s = "rr"
+    s = "r"
     for i in range(len(path)):
         try:
             if path[i][0] < path[i + 1][0]:
@@ -185,9 +189,9 @@ def create_path_string(path: list) -> str:
             elif path[i][0] > path[i + 1][0]:
                 s += "llll"
             elif path[i][1] < path[i + 1][1]:
-                s += "dddd"
+                s += "ddddd"
             elif path[i][1] > path[i + 1][1]:
-                s += "uuuu"
+                s += "uuuuu"
         except:
             pass
     return (i for i in s)
@@ -202,13 +206,9 @@ tower = Tower("Sprites/rocket.png", 2, 3)
 tower1 = Tower("Sprites/rocket.png", 3, 3)
 towers.add(tower)
 towers.add(tower1)
-enemy = Enemy(None, 10000, 0, 6)
+enemy = Enemy(None, 200, 0, 6)
 enemy.set_directions(path_string)
-# enemy1 = Enemy(None, 150, -7, 6)
-# enemy2 = Enemy(None, 200, -10, 6)
 enemies.add(enemy)
-# enemies.add(enemy1)
-# enemies.add(enemy2)
 
 heart = pg.sprite.Sprite()
 heart.image = pg.image.load("Sprites/heart.png")
