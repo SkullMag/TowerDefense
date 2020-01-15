@@ -1,3 +1,5 @@
+from pathfinding.finder.a_star import AStarFinder
+from pathfinding.core.grid import Grid
 from threading import Thread
 import pygame as pg
 import glob
@@ -14,6 +16,13 @@ clock = pg.time.Clock()
 fps = 60
 app_running = True
 cell_size = 100
+game_map = list()
+for i in open("map.map", "r", encoding="utf-8").readlines():
+    a = []
+    for j in i.strip("\n"):
+        a.append(j)
+    game_map.append(a)
+print(*game_map, sep="\n")
 
 towers = pg.sprite.Group()
 tiles = pg.sprite.Group()
@@ -40,9 +49,29 @@ class Enemy(pg.sprite.Sprite):
         self.image.fill(pg.Color("red"))
         self.rect = self.image.get_rect().move(cell_size // 2 * x + 12, cell_size // 2 * y + 12)
         self.hp = hp
+        self.current_direction = ""
+        self.directions = None
+        self.steps = 0
     
     def update(self):
-        self.rect.x += 2
+        if self.current_direction == "r":
+            self.rect.x += 2.5
+        elif self.current_direction == "l":
+            self.rect.x -= 2.5
+        elif self.current_direction == "d":
+            self.rect.y += 2.5
+        elif self.current_direction == "u":
+            self.rect.y -= 2.5
+        self.steps += 2.5
+        if self.steps == 25:
+            self.next_direction()
+            self.steps = 0
+    
+    def next_direction(self):
+        self.current_direction = next(self.directions)
+    
+    def set_directions(self, directions):
+        self.directions = directions
     
     def get_name(self):
         return self.name
@@ -113,9 +142,11 @@ def load_map(path: str):
                 except Exception:
                     pass
 
+
 def text_objects(text, font):
     textSurface = font.render(text, True, pg.Color("black"))
     return textSurface, textSurface.get_rect()
+
 
 def message_display(text: str, x: int, y: int):
     largeText = pg.font.Font('joystix.ttf', 50)
@@ -124,20 +155,63 @@ def message_display(text: str, x: int, y: int):
     screen.blit(TextSurf, TextRect)
 
 
+def find_path(start: tuple, end: tuple) -> list:
+    matrix = list()
+    for i in game_map:
+        a = []
+        for j in i:
+            if j == "#":
+                a.append(1)
+            else:
+                a.append(0)
+        matrix.append(a)
+    grid = Grid(matrix=matrix)
+
+    start = grid.node(*start)
+    end = grid.node(*end)
+
+    finder = AStarFinder()
+    path, _ = finder.find_path(start, end, grid)
+    print(grid.grid_str(path=path, start=start, end=end))
+    return path
+
+
+def create_path_string(path: list) -> str:
+    s = "rr"
+    for i in range(len(path)):
+        try:
+            if path[i][0] < path[i + 1][0]:
+                s += "rrrr"
+            elif path[i][0] > path[i + 1][0]:
+                s += "llll"
+            elif path[i][1] < path[i + 1][1]:
+                s += "dddd"
+            elif path[i][1] > path[i + 1][1]:
+                s += "uuuu"
+        except:
+            pass
+    return (i for i in s)
+
+
+game_map[4][2] = "@"
+game_map[4][3] = "@"
+path = find_path((0, 4), (15, 4))
+path_string = create_path_string(path)
 load_map("map.map")
-tower = Tower("Sprites/rocket.png", 2, 2)
-tower1 = Tower("Sprites/rocket.png", 3, 2)
+tower = Tower("Sprites/rocket.png", 2, 3)
+tower1 = Tower("Sprites/rocket.png", 3, 3)
 towers.add(tower)
 towers.add(tower1)
-enemy = Enemy(None, 100, 0, 6)
-enemy1 = Enemy(None, 150, -7, 6)
-enemy2 = Enemy(None, 200, -10, 6)
+enemy = Enemy(None, 10000, 0, 6)
+enemy.set_directions(path_string)
+# enemy1 = Enemy(None, 150, -7, 6)
+# enemy2 = Enemy(None, 200, -10, 6)
 enemies.add(enemy)
-enemies.add(enemy1)
-enemies.add(enemy2)
+# enemies.add(enemy1)
+# enemies.add(enemy2)
 
 heart = pg.sprite.Sprite()
-heart.image = pg.image.load("heart.png")
+heart.image = pg.image.load("Sprites/heart.png")
 heart.image = pg.transform.scale(heart.image, (64, 55))
 heart.rect = heart.image.get_rect()
 heart.rect.center = (50, 50)
