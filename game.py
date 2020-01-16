@@ -2,27 +2,28 @@ from pathfinding.finder.a_star import AStarFinder
 from pathfinding.core.grid import Grid
 from threading import Thread
 import pygame as pg
+import math
 import glob
 import time
 import os
 import gc
 
 
-pg.init()
-width, height = 1280, 720
-screen = pg.display.set_mode((width, height))
-clock = pg.time.Clock()
-
 fps = 60
 app_running = True
 cell_size = 100
+tower_hp = 100
 game_map = list()
 for i in open("map.map", "r", encoding="utf-8").readlines():
     a = []
     for j in i.strip("\n"):
         a.append(j)
     game_map.append(a)
-print(*game_map, sep="\n")
+
+pg.init() 
+width, height = cell_size * len(game_map[0]), cell_size * len(game_map)
+screen = pg.display.set_mode((width, height))
+clock = pg.time.Clock()
 
 towers = pg.sprite.Group()
 tiles = pg.sprite.Group()
@@ -54,16 +55,17 @@ class Enemy(pg.sprite.Sprite):
         self.steps = 0
     
     def update(self):
+        n = 5
         if self.current_direction == "r":
-            self.rect.x += 2.5
+            self.rect.x += n
         elif self.current_direction == "l":
-            self.rect.x -= 2.5
+            self.rect.x -= n
         elif self.current_direction == "d":
-            self.rect.y += 2.5
+            self.rect.y += n
         elif self.current_direction == "u":
-            self.rect.y -= 2.5
-        self.steps += 2.5
-        if self.steps == 25:
+            self.rect.y -= n
+        self.steps += n
+        if self.steps == n * 10:
             self.next_direction()
             self.steps = 0
     
@@ -71,11 +73,14 @@ class Enemy(pg.sprite.Sprite):
         try:
             self.current_direction = next(self.directions)
         except StopIteration:
+            global tower_hp
+
+            tower_hp -= 10
             self.kill()
             del self
     
     def set_directions(self, directions):
-        self.directions = directions
+        self.directions = (i for i in directions[:])
     
     def get_name(self):
         return self.name
@@ -99,7 +104,7 @@ class Tower(pg.sprite.Sprite):
 
         self.image = pg.image.load(img)
         self.image = pg.transform.scale(self.image, (cell_size, cell_size))
-        self.image = pg.transform.flip(self.image, False, True)
+        # self.image = pg.transform.flip(self.image, False, True)
         self.rect = self.image.get_rect().move(100 * x, 100 * y)
         self.target = None
         self.x = x
@@ -118,8 +123,9 @@ class Tower(pg.sprite.Sprite):
         if self.has_target():
             self.n += 1
             if self.n == 30:
-                if self.get_pos().distance_to(self.target.get_pos()) < 80:
+                if self.get_pos().distance_to(self.target.get_pos()) < 200:
                     self.hit_target()
+                    # self.rotate()
                 else:
                     self.target = None
                 self.n = 0
@@ -127,6 +133,12 @@ class Tower(pg.sprite.Sprite):
     def has_target(self):
         return self.target is not None
     
+    def rotate(self):
+        if self.has_target():
+            direction = self.target.get_pos() - self.get_pos()
+            radius, angle = direction.as_polar()
+            self.image = pg.transform.rotate(self.image, -angle)
+            self.rect = self.image.get_rect(center=self.rect.center)
     
     def get_pos(self):
         return pg.math.Vector2(self.rect.center[0], self.rect.center[1])
@@ -176,39 +188,36 @@ def find_path(start: tuple, end: tuple) -> list:
 
     finder = AStarFinder()
     path, _ = finder.find_path(start, end, grid)
-    print(grid.grid_str(path=path, start=start, end=end))
     return path
 
 
 def create_path_string(path: list) -> str:
-    s = "r"
+    s = ""
     for i in range(len(path)):
         try:
             if path[i][0] < path[i + 1][0]:
-                s += "rrrr"
+                s += "rr"
             elif path[i][0] > path[i + 1][0]:
-                s += "llll"
+                s += "ll"
             elif path[i][1] < path[i + 1][1]:
-                s += "ddddd"
+                s += "dd"
             elif path[i][1] > path[i + 1][1]:
-                s += "uuuuu"
+                s += "uu"
         except:
             pass
-    return (i for i in s)
+    return [i for i in s]
 
+def create_enemy():
+    path = find_path((0, 3), (15, 3))
+    path_string = create_path_string(path)    
+    enemy = Enemy(None, 100, 0, 3)  
+    enemy.set_directions(path_string)
+    enemies.add(enemy)
 
-game_map[4][2] = "@"
-game_map[4][3] = "@"
-path = find_path((0, 4), (15, 4))
-path_string = create_path_string(path)
+event_id = 2
+n_enemies = 0
+
 load_map("map.map")
-tower = Tower("Sprites/rocket.png", 2, 3)
-tower1 = Tower("Sprites/rocket.png", 3, 3)
-towers.add(tower)
-towers.add(tower1)
-enemy = Enemy(None, 200, 0, 6)
-enemy.set_directions(path_string)
-enemies.add(enemy)
 
 heart = pg.sprite.Sprite()
 heart.image = pg.image.load("Sprites/heart.png")
@@ -222,6 +231,24 @@ while app_running:
     for event in pg.event.get():
         if event.type == pg.QUIT:
             app_running = False
+        if event.type == pg.KEYDOWN:
+            if event.key == pg.K_SPACE:
+                pg.time.set_timer(event_id, 500)
+                create_enemy()
+        if event.type == event_id:
+            if n_enemies < 10:
+                create_enemy()
+                n_enemies += 1
+            else:
+                pg.time.set_timer(event_id, 0)
+                n_enemies = 0
+
+        if event.type == pg.MOUSEBUTTONDOWN:
+            x, y = pg.mouse.get_pos()
+            cell = x // cell_size, y // cell_size
+            tw = Tower("Sprites/rocket.png", cell[0], cell[1])
+            towers.add(tw)
+            game_map[cell[1]][cell[0]] = "@"
     
     for target in enemies:
         for tw in towers:
@@ -238,7 +265,7 @@ while app_running:
     towers.draw(screen)
     enemies.draw(screen)
     message_display("Wave 20", width - 150, 50)
-    message_display("100", 150, 50)
+    message_display(str(tower_hp), 150, 50)
     screen.blit(heart.image, heart.rect)
     pg.display.flip()
     clock.tick(fps)
