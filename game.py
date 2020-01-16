@@ -48,7 +48,7 @@ class Enemy(pg.sprite.Sprite):
 
         self.image = pg.Surface([cell_size // 2, cell_size // 2])
         self.image.fill(pg.Color("red"))
-        self.rect = self.image.get_rect().move(cell_size // 2 * x + 25, cell_size // 2 * y + 25)
+        self.rect = self.image.get_rect().move(cell_size * x + 25, cell_size * y + 25)
         self.hp = hp
         self.current_direction = ""
         self.directions = None
@@ -210,7 +210,7 @@ def create_path_string(path: list) -> str:
 def create_enemy():
     path = find_path((0, 3), (15, 3))
     path_string = create_path_string(path)    
-    enemy = Enemy(None, 100, 0, 3)  
+    enemy = Enemy(None, 1000, 0, 3)  
     enemy.set_directions(path_string)
     enemies.add(enemy)
 
