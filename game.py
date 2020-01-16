@@ -13,6 +13,7 @@ fps = 60
 app_running = True
 cell_size = 100
 tower_hp = 100
+coins = 100
 game_map = list()
 for i in open("map.map", "r", encoding="utf-8").readlines():
     a = []
@@ -82,17 +83,17 @@ class Enemy(pg.sprite.Sprite):
     def set_directions(self, directions):
         self.directions = (i for i in directions[:])
     
-    def get_name(self):
-        return self.name
-    
-    def hit(self, tower, damage: int):
+    def hit(self, damage: int):
+        global coins
+        # self.hp -= damage
+        print(self.hp)
         if self.hp - damage <= 0:
-            self.kill()
-            del self
-            return True
-        else:
             self.hp -= damage
-            return False
+            self.kill()
+            coins += 10
+            return True
+        self.hp -= damage
+        return False
     
     def get_pos(self):
         return pg.math.Vector2(self.rect.center[0], self.rect.center[1])
@@ -114,10 +115,15 @@ class Tower(pg.sprite.Sprite):
         self.target = target
     
     def hit_target(self):
-        res = self.target.hit(self, 25)
+        global coins
+        
+        # if res:
+        #     coins += 10
         if self.target not in enemies:
             self.target = None
             self.n = 0
+        else:
+            res = self.target.hit(50)
     
     def update_(self):
         if self.has_target():
@@ -210,12 +216,14 @@ def create_path_string(path: list) -> str:
 def create_enemy():
     path = find_path((0, 3), (15, 3))
     path_string = create_path_string(path)    
-    enemy = Enemy(None, 1000, 0, 3)  
+    enemy = Enemy(None, 100, 0, 3)  
     enemy.set_directions(path_string)
     enemies.add(enemy)
 
 event_id = 2
 n_enemies = 0
+waves = (i for i in [[Enemy(None, 100, 0, 3)] * 3, [Enemy(None, 150, 0, 3)] * 3])
+current_wave = next(waves)
 
 load_map("map.map")
 
@@ -224,6 +232,12 @@ heart.image = pg.image.load("Sprites/heart.png")
 heart.image = pg.transform.scale(heart.image, (64, 55))
 heart.rect = heart.image.get_rect()
 heart.rect.center = (50, 50)
+
+coin = pg.sprite.Sprite()
+coin.image = pg.image.load("Sprites/coin.png")
+coin.image = pg.transform.scale(coin.image, (64, 55))
+coin.rect = coin.image.get_rect()
+coin.rect.center = (50, 120)
 
 gc.collect()
 
@@ -234,21 +248,44 @@ while app_running:
         if event.type == pg.KEYDOWN:
             if event.key == pg.K_SPACE:
                 pg.time.set_timer(event_id, 500)
-                create_enemy()
+                path = find_path((0, 3), (15, 3))
+                path_string = create_path_string(path)  
+                enemy = current_wave[n_enemies]
+                enemy.set_directions(path_string)
+                enemies.add(enemy)
+                n_enemies += 1
         if event.type == event_id:
-            if n_enemies < 10:
-                create_enemy()
+            if n_enemies < len(current_wave):
+                path = find_path((0, 3), (15, 3))
+                path_string = create_path_string(path)  
+                enemy = current_wave[n_enemies]
+                enemy.set_directions(path_string)
+                enemies.add(enemy)
                 n_enemies += 1
             else:
                 pg.time.set_timer(event_id, 0)
                 n_enemies = 0
+                try:
+                    current_wave = next(waves)
+                except StopIteration:
+                    print("Game over")
 
         if event.type == pg.MOUSEBUTTONDOWN:
             x, y = pg.mouse.get_pos()
             cell = x // cell_size, y // cell_size
-            tw = Tower("Sprites/rocket.png", cell[0], cell[1])
-            towers.add(tw)
-            game_map[cell[1]][cell[0]] = "@"
+            if event.button == pg.BUTTON_RIGHT:
+                if game_map[cell[1]][cell[0]] == "@":
+                    game_map[cell[1]][cell[0]] = "#"
+                    coins += 25
+                    for i in towers:
+                        if i.rect.center[0] // 100 == cell[0] and i.rect.center[1] // 100 == cell[1]:
+                            i.kill()
+            elif event.button == pg.BUTTON_LEFT:
+                if game_map[cell[1]][cell[0]] != "@" and coins - 50 >= 0:
+                    coins -= 50
+                    tw = Tower("Sprites/rocket.png", cell[0], cell[1])
+                    towers.add(tw)
+                    game_map[cell[1]][cell[0]] = "@"
     
     for target in enemies:
         for tw in towers:
@@ -266,7 +303,9 @@ while app_running:
     enemies.draw(screen)
     message_display("Wave 20", width - 150, 50)
     message_display(str(tower_hp), 150, 50)
+    message_display(str(coins), 150, 120)
     screen.blit(heart.image, heart.rect)
+    screen.blit(coin.image, coin.rect)
     pg.display.flip()
     clock.tick(fps)
         
