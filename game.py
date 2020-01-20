@@ -13,6 +13,7 @@ fps = 60
 app_running = True
 cell_size = 100
 tower_hp = 100
+wave_count = 20
 coins = 100
 game_map = list()
 for i in open("map.map", "r", encoding="utf-8").readlines():
@@ -47,8 +48,8 @@ class Enemy(pg.sprite.Sprite):
     def __init__(self, img, hp, x, y):
         super().__init__()
 
-        self.image = pg.Surface([cell_size // 2, cell_size // 2])
-        self.image.fill(pg.Color("red"))
+        self.image = pg.image.load("Sprites/skeleton.gif")
+        self.image = pg.transform.scale(self.image, (50, 50))
         self.rect = self.image.get_rect().move(cell_size * x + 25, cell_size * y + 25)
         self.hp = hp
         self.current_direction = ""
@@ -220,9 +221,15 @@ def create_enemy():
     enemy.set_directions(path_string)
     enemies.add(enemy)
 
+def check_for_killed():
+    while [i for i in enemies] != []:
+        time.sleep(1)
+    pg.time.set_timer(event_id, 800)
+
 event_id = 2
 n_enemies = 0
-waves = (i for i in [[Enemy(None, 100, 0, 3)] * 3, [Enemy(None, 150, 0, 3)] * 3])
+waves = (i for i in [[Enemy(None, 120, 0, 3) for i in range(5)] + [Enemy(None, 550, 0, 3) for i in range(5)],
+                     [Enemy(None, 300, 0, 3) for _ in range(10)]])
 current_wave = next(waves)
 
 load_map("map.map")
@@ -247,13 +254,7 @@ while app_running:
             app_running = False
         if event.type == pg.KEYDOWN:
             if event.key == pg.K_SPACE:
-                pg.time.set_timer(event_id, 500)
-                path = find_path((0, 3), (15, 3))
-                path_string = create_path_string(path)  
-                enemy = current_wave[n_enemies]
-                enemy.set_directions(path_string)
-                enemies.add(enemy)
-                n_enemies += 1
+                pg.time.set_timer(event_id, 1000)
         if event.type == event_id:
             if n_enemies < len(current_wave):
                 path = find_path((0, 3), (15, 3))
@@ -265,8 +266,11 @@ while app_running:
             else:
                 pg.time.set_timer(event_id, 0)
                 n_enemies = 0
+                wave_count -= 1
+                
                 try:
                     current_wave = next(waves)
+                    Thread(target=check_for_killed).start()
                 except StopIteration:
                     print("Game over")
 
@@ -301,7 +305,7 @@ while app_running:
     tiles.draw(screen)
     towers.draw(screen)
     enemies.draw(screen)
-    message_display("Wave 20", width - 150, 50)
+    message_display("Wave " + str(wave_count), width - 150, 50)
     message_display(str(tower_hp), 150, 50)
     message_display(str(coins), 150, 120)
     screen.blit(heart.image, heart.rect)
