@@ -5,6 +5,7 @@ import pygame as pg
 import math
 import glob
 import time
+import sys
 import os
 import gc
 
@@ -15,6 +16,7 @@ cell_size = 100
 tower_hp = 100
 wave_count = 20
 coins = 100
+wave_speed = 800
 game_map = list()
 for i in open("map.map", "r", encoding="utf-8").readlines():
     a = []
@@ -86,8 +88,7 @@ class Enemy(pg.sprite.Sprite):
     
     def hit(self, damage: int):
         global coins
-        # self.hp -= damage
-        print(self.hp)
+        
         if self.hp - damage <= 0:
             self.hp -= damage
             self.kill()
@@ -171,8 +172,8 @@ def text_objects(text, font):
     return textSurface, textSurface.get_rect()
 
 
-def message_display(text: str, x: int, y: int):
-    largeText = pg.font.Font('joystix.ttf', 50)
+def message_display(text: str, x: int, y: int, size=50):
+    largeText = pg.font.Font('joystix.ttf', size)
     TextSurf, TextRect = text_objects(text, largeText)
     TextRect.center = (x, y)
     screen.blit(TextSurf, TextRect)
@@ -214,6 +215,7 @@ def create_path_string(path: list) -> str:
             pass
     return [i for i in s]
 
+
 def create_enemy():
     path = find_path((0, 3), (15, 3))
     path_string = create_path_string(path)    
@@ -221,15 +223,100 @@ def create_enemy():
     enemy.set_directions(path_string)
     enemies.add(enemy)
 
+
 def check_for_killed():
+    global wave_speed
     while [i for i in enemies] != []:
         time.sleep(1)
-    pg.time.set_timer(event_id, 800)
+    wave_speed = int(wave_speed * .9)
+    pg.time.set_timer(event_id, wave_speed)
+
+
+def terminate():
+    pg.quit()
+    sys.exit()
+
+
+def display_start_menu():
+    start_button = pg.transform.scale(pg.image.load("Sprites/button.png"), (400, 100))
+    credits_button = pg.transform.scale(pg.image.load("Sprites/button.png"), (400, 100))
+    exit_button = pg.transform.scale(pg.image.load("Sprites/button.png"), (400, 100))
+    screen.fill(pg.Color("orange"))
+    screen.blit(credits_button, (width // 2 - 200, 300))
+    screen.blit(start_button, (width // 2 - 200, 200))
+    screen.blit(exit_button, (width // 2 - 200, 400))
+    message_display("Start", width // 2, 245)
+    message_display("Credits", width // 2, 345)
+    message_display("Exit", width // 2, 445)
+
+    message_display("Tower Defense", width // 2, 70)
+
+
+def display_credits_tab():
+    main_menu = pg.transform.scale(pg.image.load("Sprites/button.png"), (400, 100))
+    screen.blit(main_menu, (width // 2 - 200, 525))
+    message_display("main purpose of this game is for you to have fun", width // 2, 230, 30)
+    message_display("in this game you have to defend the tower from skeletons", width // 2, 300, 30)
+    message_display("you should enjoy playing and replaying it every time", width // 2, 370, 30)
+    message_display("this game was created by rybalko oleg", width // 2, 440, 30)
+    message_display("<main menu",  width // 2, 570, 40)
+
+def start_screen():
+
+    display_start_menu()
+    current_menu = "main"
+
+    while True:
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                terminate()
+            if event.type == pg.MOUSEBUTTONDOWN:
+                if current_menu == "main":
+                    if pg.mouse.get_pressed()[0] == 1:
+                        mouse = pg.mouse.get_pos()
+                        if mouse[0] in range(width // 2 - 200,
+                                            width // 2 - 200 + 400) and\
+                            mouse[1] in range(300, 400):
+                            current_menu = "credits"
+                            screen.fill(pg.Color("orange"))
+                            display_credits_tab()
+                        elif mouse[0] in range(width // 2 - 200,
+                                            width // 2 - 200 + 400) and\
+                            mouse[1] in range(200, 300):
+                            return
+                        elif mouse[0] in range(width // 2 - 200,
+                                            width // 2 - 200 + 400) and\
+                            mouse[1] in range(400, 500):
+                            terminate()
+                elif current_menu == "credits":
+                    if pg.mouse.get_pressed()[0] == 1:
+                        mouse = pg.mouse.get_pos()
+                        if mouse[0] in range(width // 2 - 200,
+                                            width // 2 - 200 + 400) and\
+                            mouse[1] in range(525, 625):
+                            current_menu = "main"
+                            screen.fill(pg.Color("orange"))
+                            display_start_menu()
+                        
+
+        pg.display.flip()
+        clock.tick(fps)
 
 event_id = 2
 n_enemies = 0
-waves = (i for i in [[Enemy(None, 120, 0, 3) for i in range(5)] + [Enemy(None, 550, 0, 3) for i in range(5)],
-                     [Enemy(None, 300, 0, 3) for _ in range(10)]])
+waves = []
+for j in range(20):
+    a = []
+    for i in range(10 + j):
+        if i == 0:
+            if j == 0:
+                a.append(Enemy(None, 100, 0, 3))
+            else:
+                a.append(Enemy(None, waves[-1][-1].hp + 4, 0, 3))
+        else:
+            a.append(Enemy(None, a[i - 1].hp + 4, 0, 3))
+    waves.append(a)
+waves = (i for i in waves)
 current_wave = next(waves)
 
 load_map("map.map")
@@ -247,6 +334,7 @@ coin.rect = coin.image.get_rect()
 coin.rect.center = (50, 120)
 
 gc.collect()
+start_screen()
 
 while app_running:
     for event in pg.event.get():
@@ -254,7 +342,7 @@ while app_running:
             app_running = False
         if event.type == pg.KEYDOWN:
             if event.key == pg.K_SPACE:
-                pg.time.set_timer(event_id, 1000)
+                pg.time.set_timer(event_id, 800)
         if event.type == event_id:
             if n_enemies < len(current_wave):
                 path = find_path((0, 3), (15, 3))
@@ -267,7 +355,7 @@ while app_running:
                 pg.time.set_timer(event_id, 0)
                 n_enemies = 0
                 wave_count -= 1
-                
+
                 try:
                     current_wave = next(waves)
                     Thread(target=check_for_killed).start()
