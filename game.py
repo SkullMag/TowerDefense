@@ -17,6 +17,9 @@ tower_hp = 100
 wave_count = 20
 coins = 100
 wave_speed = 800
+start_timer_n = 10
+start_timer_event_id = 30
+
 game_map = list()
 for i in open("map.map", "r", encoding="utf-8").readlines():
     a = []
@@ -125,7 +128,7 @@ class Tower(pg.sprite.Sprite):
             self.target = None
             self.n = 0
         else:
-            res = self.target.hit(50)
+            res = self.target.hit(25)
     
     def update_(self):
         if self.has_target():
@@ -179,9 +182,9 @@ def message_display(text: str, x: int, y: int, size=50):
     screen.blit(TextSurf, TextRect)
 
 
-def find_path(start: tuple, end: tuple) -> list:
+def find_path(start: tuple, end: tuple, map=game_map) -> list:
     matrix = list()
-    for i in game_map:
+    for i in map:
         a = []
         for j in i:
             if j == "#":
@@ -261,6 +264,7 @@ def display_credits_tab():
     message_display("this game was created by rybalko oleg", width // 2, 440, 30)
     message_display("<main menu",  width // 2, 570, 40)
 
+
 def start_screen():
 
     display_start_menu()
@@ -333,16 +337,22 @@ coin.image = pg.transform.scale(coin.image, (64, 55))
 coin.rect = coin.image.get_rect()
 coin.rect.center = (50, 120)
 
+arrow = pg.sprite.Sprite()
+arrow.image = pg.image.load("Sprites/arrow.png")
+arrow.image = pg.transform.scale(arrow.image, (64, 64))
+arrow.rect = arrow.image.get_rect()
+arrow.rect.center = (50, 350)
+
 gc.collect()
 start_screen()
+pg.time.set_timer(start_timer_event_id, 1000)
 
 while app_running:
     for event in pg.event.get():
         if event.type == pg.QUIT:
             app_running = False
-        if event.type == pg.KEYDOWN:
-            if event.key == pg.K_SPACE:
-                pg.time.set_timer(event_id, 800)
+        if event.type == start_timer_event_id:
+            start_timer_n -= 1
         if event.type == event_id:
             if n_enemies < len(current_wave):
                 path = find_path((0, 3), (15, 3))
@@ -374,10 +384,17 @@ while app_running:
                             i.kill()
             elif event.button == pg.BUTTON_LEFT:
                 if game_map[cell[1]][cell[0]] != "@" and coins - 50 >= 0:
-                    coins -= 50
-                    tw = Tower("Sprites/rocket.png", cell[0], cell[1])
-                    towers.add(tw)
-                    game_map[cell[1]][cell[0]] = "@"
+                    temp_map = game_map[:]
+                    temp_map[cell[1]][cell[0]] = "@"
+                    path = find_path((0, 3), (15, 3), temp_map)
+                    print(game_map)
+                    print(len(path))
+                    if len(path) > 0 and not (cell[0] == 0 and cell[1] == 3):
+                        print(2)
+                        coins -= 50
+                        tw = Tower("Sprites/rocket.png", cell[0], cell[1])
+                        towers.add(tw)
+                        game_map[cell[1]][cell[0]] = "@"
     
     for target in enemies:
         for tw in towers:
@@ -392,8 +409,15 @@ while app_running:
     enemies.update()
     tiles.draw(screen)
     towers.draw(screen)
+    screen.blit(arrow.image, arrow.rect)
     enemies.draw(screen)
     message_display("Wave " + str(wave_count), width - 150, 50)
+    if start_timer_n > 0:
+        message_display("First wave in " + str(start_timer_n), width // 2, 50)
+    elif start_timer_n == 0:
+        pg.time.set_timer(event_id, 800)
+        pg.time.set_timer(start_timer_event_id, 0)
+        start_timer_n -= 1
     message_display(str(tower_hp), 150, 50)
     message_display(str(coins), 150, 120)
     screen.blit(heart.image, heart.rect)
