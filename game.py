@@ -61,6 +61,7 @@ class Enemy(pg.sprite.Sprite):
         self.rect = self.image.get_rect().move(cell_size * x + 25,
                                                cell_size * y + 25)
         self.hp = hp
+        self.max_hp = hp
         self.current_direction = ""
         self.directions = None
         self.steps = 0
@@ -119,6 +120,7 @@ class Tower(pg.sprite.Sprite):
         self.target = None
         self.x = x
         self.n = 0
+        self.n_anim = 0
 
     def set_target(self, target: Enemy):
         self.target = target
@@ -142,16 +144,22 @@ class Tower(pg.sprite.Sprite):
                 else:
                     self.target = None
                 self.n = 0
+    
+    def rotate(self):
+        if self.n_anim < 240:
+            self.n_anim += 1
+        else:
+            print(self.n_anim)
+            direction = self.target.get_pos() - self.get_pos()
+            radius, angle = direction.as_polar()
+
+            self.image = pg.transform.rotate(self.orig_image, -angle)
+            # Create a new rect with the center of the old rect.
+            self.rect = self.image.get_rect(center=self.rect.center)
+            self.n_anim = 0
 
     def has_target(self):
         return self.target is not None
-
-    def rotate(self):
-        if self.has_target():
-            direction = self.target.get_pos() - self.get_pos()
-            radius, angle = direction.as_polar()
-            self.image = pg.transform.rotate(self.image, -angle)
-            self.rect = self.image.get_rect(center=self.rect.center)
 
     def get_pos(self):
         return pg.math.Vector2(self.rect.center[0], self.rect.center[1])
@@ -438,6 +446,13 @@ while app_running:
     towers.draw(screen)
     screen.blit(arrow.image, arrow.rect)
     enemies.draw(screen)
+    for enemy in enemies:
+        pg.draw.rect(screen, pg.Color("red"),
+                     (enemy.rect.x, enemy.rect.y - 20, 50, 8))
+        w = enemy.hp / enemy.max_hp
+        pg.draw.rect(screen, pg.Color("green"),
+                     (enemy.rect.x, enemy.rect.y - 20, 50 * w, 8))
+            
     if start_timer_n > 0:
         message_display("First wave in " + str(start_timer_n), width // 2, 50)
     elif start_timer_n == 0:
@@ -466,7 +481,6 @@ while app_running:
         screen.blit(heart.image, heart.rect)
         screen.blit(coin.image, coin.rect)
     if tower_hp <= 0:
-        print(tower_hp)
         message_display("Try again", width // 2, 50)
     elif wave_count == 0 and tower_hp > 0:
         message_display("congratulations!", width // 2, 50)
