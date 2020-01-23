@@ -1,5 +1,6 @@
 from pathfinding.finder.a_star import AStarFinder
 from pathfinding.core.grid import Grid
+from playsound import playsound
 from threading import Thread
 import pygame as pg
 import math
@@ -115,7 +116,6 @@ class Tower(pg.sprite.Sprite):
 
         self.image = pg.image.load(img)
         self.image = pg.transform.scale(self.image, (cell_size, cell_size))
-        # self.image = pg.transform.flip(self.image, False, True)
         self.rect = self.image.get_rect().move(100 * x, 100 * y)
         self.target = None
         self.x = x
@@ -154,7 +154,7 @@ class Tower(pg.sprite.Sprite):
             radius, angle = direction.as_polar()
 
             self.image = pg.transform.rotate(self.orig_image, -angle)
-            # Create a new rect with the center of the old rect.
+
             self.rect = self.image.get_rect(center=self.rect.center)
             self.n_anim = 0
 
@@ -181,14 +181,14 @@ def load_map(path: str):
                     pass
 
 
-def text_objects(text, font):
-    textSurface = font.render(text, True, pg.Color("black"))
+def text_objects(text, font, color):
+    textSurface = font.render(text, True, pg.Color(color))
     return textSurface, textSurface.get_rect()
 
 
-def message_display(text: str, x: int, y: int, size=50):
+def message_display(text: str, x: int, y: int, size=50, color="black"):
     largeText = pg.font.Font('joystix.ttf', size)
-    TextSurf, TextRect = text_objects(text, largeText)
+    TextSurf, TextRect = text_objects(text, largeText, color)
     TextRect.center = (x, y)
     screen.blit(TextSurf, TextRect)
 
@@ -257,7 +257,6 @@ def display_start_menu():
     message_display("Start", width // 2, 245)
     message_display("Credits", width // 2, 345)
     message_display("Exit", width // 2, 445)
-
     message_display("Tower Defense", width // 2, 70)
 
 
